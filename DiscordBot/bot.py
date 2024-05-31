@@ -1,14 +1,16 @@
-# bot.py
 import discord
 from discord.ext import commands
 import os
 import json
 import logging
 import re
-import requests
 from report import Report
 from mod import Mod
-import pdb
+from dotenv import load_dotenv
+from report import Report, classify_message_with_azure
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging to the console
 logger = logging.getLogger('discord')
@@ -25,7 +27,6 @@ with open(token_path) as f:
     # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
     tokens = json.load(f)
     discord_token = tokens['discord']
-
 
 class ModBot(discord.Client):
     def __init__(self): 
@@ -57,7 +58,6 @@ class ModBot(discord.Client):
                 if channel.name == f'group-{self.group_num}-mod':
                     self.mod_channels[guild.id] = channel
                     self.mod_channel = channel
-        
 
     async def on_message(self, message):
         '''
@@ -112,9 +112,17 @@ class ModBot(discord.Client):
 
         # Forward the message to the mod channel
         mod_channel = self.mod_channels[message.guild.id]
-        await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
-        scores = self.eval_text(message.content)
-        await mod_channel.send(self.code_format(scores))
+        #await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
+        
+        # Evaluate the message
+        classification_result = self.eval_text(message.content)
+        
+        # If flagged, notify the mod channel
+        if classification_result:
+            print("notified")
+            category, confidence_score = classification_result
+            await mod_channel.send(self.code_format(message.content, confidence_score))
+        print("test")
 
     async def handle_mod_message(self, message):
         author_id = message.author.id
@@ -135,21 +143,19 @@ class ModBot(discord.Client):
             self.mod_flows.pop(author_id)
         
     def eval_text(self, message):
-        ''''
-        TODO: Once you know how you want to evaluate messages in your channel, 
-        insert your code here! This will primarily be used in Milestone 3. 
         '''
-        return message
-
-    
-    def code_format(self, text):
-        ''''
-        TODO: Once you know how you want to show that a message has been 
-        evaluated, insert your code here for formatting the string to be 
-        shown in the mod channel. 
+        Evaluate the message using the classifier.
         '''
-        return "Evaluated: '" + text+ "'"
+        # Call the classification function
+        classification_result = classify_message_with_azure(message)
+        print(classification_result)
+        return classification_result
 
+    def code_format(self, text, score):
+        '''
+        Format the string to be shown in the mod channel.
+        '''
+        return f"ALERT: The message '{text}' has been flagged by the classifier as potentially problematic with a confidence score of {score}."
 
 client = ModBot()
 client.run(discord_token)
