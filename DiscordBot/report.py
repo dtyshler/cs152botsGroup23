@@ -68,11 +68,6 @@ class Report:
             
             self.reported_message.content = self.translator.translate(self.reported_message.content)
         
-            
-            #TODO Chloe and Tish input in your classifier here
-            #issues = classifier(message content) to check if there are ussues
-            # if any(issues):
-            #        await self.send_to_mod_channel(translated_content, issues, mod_channel)
             is_issue, confidence = classify_message_with_azure(self.reported_message.content)
             if is_issue:
                 if confidence > 0.90:
